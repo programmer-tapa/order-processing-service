@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
-from src.app.infra.event_processors.features.process_events.usecases.USECASE_ProcessEvents import USECASE_ProcessEvents
-from src.app.infra.event_processors.features.process_events.schemas.INPUT_ProcessEvents import INPUT_ProcessEvents
-from src.app.infra.event_processors.features.process_events.schemas.OUTPUT_ProcessEvents import OUTPUT_ProcessEvents
-from src.app.infra.events.entities.Event import Event
-from src.app.infra.event_processors.entities.AbstractEventProcessor import AbstractEventProcessor
+from src.app.infra.events.features.process_events.usecases.USECASE_ProcessEvents import USECASE_ProcessEvents
+from src.app.infra.events.features.process_events.schemas.INPUT_ProcessEvents import INPUT_ProcessEvents
+from src.app.infra.events.features.process_events.schemas.OUTPUT_ProcessEvents import OUTPUT_ProcessEvents
+from src.app.infra.events.entities.event import Event
+from src.app.infra.events.entities.abstract_event_processor import AbstractEventProcessor
 
 
 class TestUSECASE_ProcessEvents:

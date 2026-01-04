@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from src.app.infra.events.entities.Event import Event
+from src.app.infra.events.entities.event import Event
+
 
 class AbstractEventProcessor(ABC):
 
     @abstractmethod
-    def process(self, data: Event) -> None:
+    async def process(self, event: Event) -> None:
         pass
