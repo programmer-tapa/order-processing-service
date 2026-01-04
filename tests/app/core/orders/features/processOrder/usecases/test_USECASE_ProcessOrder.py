@@ -1,8 +1,14 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
-from src.app.core.orders.features.processOrder.usecases.USECASE_ProcessOrder import USECASE_ProcessOrder
-from src.app.core.orders.features.processOrder.schemas.INPUT_ProcessOrder import INPUT_ProcessOrder
-from src.app.core.orders.features.processOrder.schemas.OUTPUT_ProcessOrder import OUTPUT_ProcessOrder
+from src.app.core.orders.features.processOrder.usecases.USECASE_ProcessOrder import (
+    USECASE_ProcessOrder,
+)
+from src.app.core.orders.features.processOrder.schemas.INPUT_ProcessOrder import (
+    INPUT_ProcessOrder,
+)
+from src.app.core.orders.features.processOrder.schemas.OUTPUT_ProcessOrder import (
+    OUTPUT_ProcessOrder,
+)
 from src.app.core.orders.entities.Order import Order
 
 
@@ -12,21 +18,21 @@ class TestUSECASE_ProcessOrder:
     def mock_orders(self):
         return [
             Order(
-                id=1,
+                id="1",
                 customer_name="Alice",
                 total_amount=100.0,
                 status="new",
                 created_at="2023-01-01T00:00:00Z",
-                updated_at="2023-01-01T00:00:00Z"
+                updated_at="2023-01-01T00:00:00Z",
             ),
             Order(
-                id=2,
+                id="2",
                 customer_name="Bob",
                 total_amount=200.0,
                 status="processing",
                 created_at="2023-01-01T00:00:00Z",
-                updated_at="2023-01-01T00:00:00Z"
-            )
+                updated_at="2023-01-01T00:00:00Z",
+            ),
         ]
 
     @pytest.fixture

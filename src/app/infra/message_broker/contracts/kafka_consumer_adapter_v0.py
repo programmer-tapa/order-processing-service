@@ -25,13 +25,13 @@ class KafkaConsumerAdapter(AbstractConsumerAdapter, ABC):
     def __init__(self):
         super().__init__(logger)
         self.conf = {
-            "bootstrap.servers": "localhost:9092",
-            "group.id": "order-processing-group",
-            "auto.offset.reset": "earliest",
+            "bootstrap.servers": dotenv.KAFKA_BROKER_URL,
+            "group.id": dotenv.KAFKA_GROUP_ID,
+            "auto.offset.reset": dotenv.KAFKA_AUTO_OFFSET_RESET,
             "enable.auto.commit": True,
         }
-        self.topic = ["order-events"]
-        self.dlq_topic = "orders-dlq"
+        self.topic = dotenv.KAFKA_TOPIC
+        self.dlq_topic = dotenv.KAFKA_DLQ_TOPIC
         self.logger = logger
         self.keep_running = False
 

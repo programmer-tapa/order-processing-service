@@ -33,7 +33,7 @@ class DotEnv(BaseSettings):
 
     BACKEND_ALLOWED_HOSTS: List
 
-    KAFKA_BROKER_URL: List[str]
+    KAFKA_BROKER_URL: str
     KAFKA_GROUP_ID: str
     KAFKA_TOPIC: List[str]
     KAFKA_DLQ_TOPIC: str

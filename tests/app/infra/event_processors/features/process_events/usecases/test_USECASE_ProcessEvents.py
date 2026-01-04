@@ -1,10 +1,18 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
-from src.app.infra.events.features.process_events.usecases.USECASE_ProcessEvents import USECASE_ProcessEvents
-from src.app.infra.events.features.process_events.schemas.INPUT_ProcessEvents import INPUT_ProcessEvents
-from src.app.infra.events.features.process_events.schemas.OUTPUT_ProcessEvents import OUTPUT_ProcessEvents
+from src.app.infra.events.features.process_events.usecases.USECASE_ProcessEvents import (
+    USECASE_ProcessEvents,
+)
+from src.app.infra.events.features.process_events.schemas.INPUT_ProcessEvents import (
+    INPUT_ProcessEvents,
+)
+from src.app.infra.events.features.process_events.schemas.OUTPUT_ProcessEvents import (
+    OUTPUT_ProcessEvents,
+)
 from src.app.infra.events.entities.event import Event
-from src.app.infra.events.entities.abstract_event_processor import AbstractEventProcessor
+from src.app.infra.events.entities.abstract_event_processor import (
+    AbstractEventProcessor,
+)
 
 
 class TestUSECASE_ProcessEvents:
@@ -22,7 +30,7 @@ class TestUSECASE_ProcessEvents:
     @pytest.fixture
     def mock_helper(self, mock_processor):
         helper = Mock()
-        helper.get_event_processor = Mock(return_value=mock_processor)
+        helper.detect_event_processor = Mock(return_value=mock_processor)
         return helper
 
     @pytest.fixture
@@ -30,7 +38,9 @@ class TestUSECASE_ProcessEvents:
         return USECASE_ProcessEvents(mock_helper)
 
     @pytest.mark.asyncio
-    async def test_execute_success(self, usecase, mock_event, mock_helper, mock_processor):
+    async def test_execute_success(
+        self, usecase, mock_event, mock_helper, mock_processor
+    ):
         """Test successful event processing"""
         request = INPUT_ProcessEvents(event=mock_event)
 
@@ -39,14 +49,16 @@ class TestUSECASE_ProcessEvents:
         assert result.success is True
         assert "Event processed successfully" in result.message
         assert mock_event.name in result.message
-        mock_helper.get_event_processor.assert_called_once_with(mock_event)
+        mock_helper.detect_event_processor.assert_called_once_with(mock_event)
         mock_processor.process.assert_called_once_with(mock_event)
 
     @pytest.mark.asyncio
     async def test_execute_failure_processor_not_found(self, mock_event):
         """Test failure when event processor cannot be found"""
         mock_helper = Mock()
-        mock_helper.get_event_processor = Mock(side_effect=ModuleNotFoundError("No module found"))
+        mock_helper.detect_event_processor = Mock(
+            side_effect=ModuleNotFoundError("No module found")
+        )
         usecase = USECASE_ProcessEvents(mock_helper)
         request = INPUT_ProcessEvents(event=mock_event)
 
@@ -57,9 +69,13 @@ class TestUSECASE_ProcessEvents:
         assert "No module found" in result.message
 
     @pytest.mark.asyncio
-    async def test_execute_failure_processor_raises_exception(self, usecase, mock_event, mock_processor):
+    async def test_execute_failure_processor_raises_exception(
+        self, usecase, mock_event, mock_processor
+    ):
         """Test failure when event processor raises an exception"""
-        mock_processor.process = AsyncMock(side_effect=RuntimeError("Processing failed"))
+        mock_processor.process = AsyncMock(
+            side_effect=RuntimeError("Processing failed")
+        )
         request = INPUT_ProcessEvents(event=mock_event)
 
         result = await usecase.execute(request)
