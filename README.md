@@ -4,10 +4,11 @@ A Python-based microservice for processing orders and handling Kafka events usin
 
 ## Features
 
-- **Order Processing** – Process incoming orders from Kafka events
+- **Order Processing** – Process incoming orders from Kafka events with validation, shipping calculation, discounts, and customer notifications
 - **Event-Driven Architecture** – Kafka consumer with Dead Letter Queue (DLQ) support
 - **Dynamic Event Processors** – Automatically loads event processors based on event names
 - **Clean Architecture** – Separation of concerns with use cases, interfaces, and contracts
+- **Centralized Logging** – Abstract logger service with colored console output and file logging
 - **Configurable Middleware** – CORS, GZip, TrustedHost, and HTTPS redirect support
 
 ## Project Structure
@@ -21,22 +22,27 @@ src/
 │   │   │       ├── abstract_usecase.py
 │   │   │       ├── abstract_factory.py
 │   │   │       └── base_class.py
-│   │   └── orders/                        # Orders domain
-│   │       ├── entities/
-│   │       │   └── Order.py
-│   │       └── features/
-│   │           └── processOrder/
-│   │               ├── contracts/         # Concrete implementations
-│   │               ├── interfaces/        # Abstract interfaces
-│   │               ├── schemas/           # Input/Output DTOs
-│   │               ├── services/          # Service orchestrators
-│   │               └── usecases/          # Business use cases
+│   │   ├── orders/                        # Orders domain
+│   │   │   ├── entities/
+│   │   │   │   └── Order.py
+│   │   │   └── features/
+│   │   │       └── processOrder/
+│   │   │           ├── contracts/         # Concrete implementations
+│   │   │           ├── interfaces/        # Abstract interfaces
+│   │   │           ├── schemas/           # Input/Output DTOs
+│   │   │           ├── services/          # Service orchestrators
+│   │   │           └── usecases/          # Business use cases
+│   │   └── system/                        # System-level utilities
 │   └── infra/                             # Infrastructure layer
 │       ├── dotenv/                        # Environment configuration
+│       │   └── services/
 │       ├── logger/                        # Logging service
+│       │   ├── interfaces/                # LoggerService interface
+│       │   ├── contracts/                 # LoggerServiceContractV0
+│       │   └── services/                  # get_service_logger()
 │       ├── events/
 │       │   ├── entities/
-│       │   │   ├── Event.py
+│       │   │   ├── event.py
 │       │   │   ├── abstract_event_processor.py
 │       │   │   └── concrete/              # Event processors (e.g., OrderCreated)
 │       │   └── features/
@@ -47,11 +53,22 @@ src/
 │           ├── functions/                 # Start/stop consumer functions
 │           ├── interfaces/                # Consumer interface
 │           └── services/                  # Message broker service
-└── framework/                             # Framework entrypoints
-    └── entrypoints/
-        ├── server.py                      # FastAPI app with Kafka lifecycle
-        └── api/
-            └── routes.py                  # API router
+├── framework/                             # Framework entrypoints
+│   ├── entrypoints/
+│   │   ├── server.py                      # FastAPI app with Kafka lifecycle
+│   │   └── api/
+│   │       └── routes.py                  # API router
+│   └── middlewares/                       # Custom middleware
+│       ├── debugger.py
+│       └── route_error_handler.py
+└── tests/                                 # Test suite (mirrors src structure)
+    └── app/
+        └── core/
+            └── orders/
+                └── features/
+                    └── processOrder/
+                        └── usecases/
+                            └── test_USECASE_ProcessOrder.py
 ```
 
 ## Tech Stack
@@ -60,7 +77,7 @@ src/
 - **FastAPI** – Web framework
 - **Pydantic** – Data validation
 - **Confluent Kafka** – Kafka consumer/producer
-- **pytest** – Testing
+- **pytest** – Testing with async support
 - **uv** – Package manager
 
 ## Installation
@@ -83,6 +100,9 @@ Copy `.env.example` to `.env` and configure the following variables:
 | `APP_HOST`       | Server host           | `127.0.0.1`                |
 | `APP_PORT`       | Server port           | `8000`                     |
 | `APP_RELOAD`     | Hot reload (dev only) | `True`                     |
+| `API_V1_STR`     | API version prefix    | `/api/v0`                  |
+| `OPENAPI_URL`    | OpenAPI docs URL      | `/apidocs`                 |
+| `LOG_FILE`       | Error log file path   | `error.log`                |
 
 ### Kafka Settings
 
@@ -103,12 +123,22 @@ Copy `.env.example` to `.env` and configure the following variables:
 | `APP_MIDDLEWARE_TRUSTEDHOST`   | Enable trusted hosts    | `True`  |
 | `APP_MIDDLEWARE_HTTPSREDIRECT` | Force HTTPS redirect    | `False` |
 
+### CORS Settings
+
+| Variable                   | Description           | Default |
+| -------------------------- | --------------------- | ------- |
+| `BACKEND_CORS_ORIGINS`     | Allowed origins       | `["*"]` |
+| `BACKEND_CORS_CREDENTIALS` | Allow credentials     | `True`  |
+| `BACKEND_CORS_METHODS`     | Allowed HTTP methods  | `["*"]` |
+| `BACKEND_CORS_HEADERS`     | Allowed headers       | `["*"]` |
+| `BACKEND_ALLOWED_HOSTS`    | Trusted host patterns | `["*"]` |
+
 ## Running the Service
 
 ### Development
 
 ```bash
-uv run python main.py
+uv run python3 main.py
 ```
 
 ### Production (Uvicorn)
@@ -126,7 +156,11 @@ gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bin
 ## Running Tests
 
 ```bash
+# Run all tests
 uv run pytest tests/ -v
+
+# Run specific test file
+uv run pytest tests/app/core/orders/features/processOrder/usecases/test_USECASE_ProcessOrder.py -v
 ```
 
 ## Architecture
@@ -140,6 +174,37 @@ This service follows a **Clean Architecture** pattern:
 | **Interfaces** | Abstract contracts (e.g., `INTERFACE_HELPER_ProcessOrder`)         |
 | **Contracts**  | Concrete implementations (e.g., `CONTRACT_HELPER_ProcessOrder_V0`) |
 | **Services**   | Orchestrators that wire use cases with helpers                     |
+
+### Order Processing Workflow
+
+The `USECASE_ProcessOrder` executes the following steps:
+
+1. **Load Order** – Retrieve order by ID from the data source
+2. **Validate Order** – Ensure order is in a processable state (`new` or `pending`)
+3. **Calculate Shipping** – Determine shipping cost (free for orders ≥ $100)
+4. **Apply Discounts** – Apply percentage-based discounts (default 10%)
+5. **Calculate Final Total** – `total_amount + shipping - discount`
+6. **Update Order Status** – Set status to `processing`
+7. **Notify Customer** – Send notification with order details
+
+## Logging Service
+
+The service uses a centralized logging infrastructure with:
+
+- **Abstract Interface** – `LoggerService` with `debug`, `info`, `warning`, `error`, `critical` methods
+- **Colored Console Output** – Different colors for each log level for better visibility
+- **File Logging** – Errors are logged to the configured `LOG_FILE`
+- **Singleton Pattern** – `get_service_logger()` returns a cached logger instance
+
+### Usage
+
+```python
+from src.app.infra.logger.services.service_logger import get_service_logger
+
+logger = get_service_logger()
+logger.info("Processing order...")
+logger.error("Failed to process order")
+```
 
 ## Event Processing Flow
 
@@ -171,13 +236,16 @@ This service follows a **Clean Architecture** pattern:
 ```python
 from src.app.infra.events.entities.abstract_event_processor import AbstractEventProcessor
 from src.app.infra.events.entities.event import Event
+from src.app.infra.logger.services.service_logger import get_service_logger
 
 class EventProcessor_OrderShipped(AbstractEventProcessor):
+    def __init__(self):
+        self._logger = get_service_logger()
 
     async def process(self, event: Event) -> None:
-        # Your processing logic here
         order_id = event.data.get("orderId")
-        print(f"Processing OrderShipped event for order ID: {order_id}")
+        self._logger.info(f"Processing OrderShipped event for order ID: {order_id}")
+        # Your processing logic here
 ```
 
 ## Naming Conventions
@@ -190,6 +258,12 @@ class EventProcessor_OrderShipped(AbstractEventProcessor):
 | Schema          | `INPUT_<FeatureName>` / `OUTPUT_<FeatureName>` | `INPUT_ProcessOrder`              |
 | Service         | `SERVICE_<FeatureName>`                        | `SERVICE_ProcessOrder`            |
 | Event Processor | `EventProcessor_<EventName>`                   | `EventProcessor_OrderCreated`     |
+
+## API Documentation
+
+When running in development mode (`PRODUCTION_ENV=False`), Swagger UI is available at:
+
+- **Swagger UI**: `http://localhost:8000/docs`
 
 ## License
 
