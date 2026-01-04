@@ -12,6 +12,7 @@ from src.app.core.orders.entities.Order import Order
 from src.app.core.orders.features.processOrder.interfaces.INTERFACE_HELPER_ProcessOrder import (
     INTERFACE_HELPER_ProcessOrder,
 )
+from src.app.infra.logger.services.service_logger import get_service_logger
 
 
 class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
@@ -23,6 +24,7 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
     """
 
     def __init__(self):
+        self._logger = get_service_logger()
         """Initialize with mock order database."""
         self._mock_orders = {
             "1": Order(
@@ -61,12 +63,14 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
 
     async def load_order(self, order_id: str) -> Optional[Order]:
         """Load order from mock database by ID."""
-        print(f"[CONTRACT] Loading order with ID: {order_id}")
+        self._logger.info(f"[CONTRACT] Loading order with ID: {order_id}")
         order = self._mock_orders.get(order_id)
         if order:
-            print(f"[CONTRACT] Found order for customer: {order.customer_name}")
+            self._logger.info(
+                f"[CONTRACT] Found order for customer: {order.customer_name}"
+            )
         else:
-            print(f"[CONTRACT] Order not found: {order_id}")
+            self._logger.info(f"[CONTRACT] Order not found: {order_id}")
         return order
 
     async def validate_order(self, order: Order) -> bool:
@@ -77,7 +81,7 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
         - Status is 'new' or 'pending'
         - Total amount is greater than 0
         """
-        print(f"[CONTRACT] Validating order {order.id}...")
+        self._logger.info(f"[CONTRACT] Validating order {order.id}...")
 
         valid_statuses = ["new", "pending"]
         is_valid_status = order.status in valid_statuses
@@ -86,13 +90,13 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
         is_valid = is_valid_status and is_valid_amount
 
         if not is_valid_status:
-            print(
+            self._logger.info(
                 f"[CONTRACT] Invalid status: {order.status} (expected: {valid_statuses})"
             )
         if not is_valid_amount:
-            print(f"[CONTRACT] Invalid amount: {order.total_amount}")
+            self._logger.info(f"[CONTRACT] Invalid amount: {order.total_amount}")
 
-        print(
+        self._logger.info(
             f"[CONTRACT] Order validation result: {'VALID' if is_valid else 'INVALID'}"
         )
         return is_valid
@@ -104,16 +108,16 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
         - Free shipping for orders over $100
         - Standard rate otherwise
         """
-        print(f"[CONTRACT] Calculating shipping for order {order.id}...")
+        self._logger.info(f"[CONTRACT] Calculating shipping for order {order.id}...")
 
         if order.total_amount >= self._shipping_rates["free_threshold"]:
             shipping = 0.00
-            print(
+            self._logger.info(
                 f"[CONTRACT] Free shipping applied (order total >= ${self._shipping_rates['free_threshold']})"
             )
         else:
             shipping = self._shipping_rates["standard"]
-            print(f"[CONTRACT] Standard shipping: ${shipping}")
+            self._logger.info(f"[CONTRACT] Standard shipping: ${shipping}")
 
         return shipping
 
@@ -124,10 +128,10 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
         In a real implementation, this would check for promo codes,
         loyalty programs, seasonal sales, etc.
         """
-        print(f"[CONTRACT] Applying discounts to order {order.id}...")
+        self._logger.info(f"[CONTRACT] Applying discounts to order {order.id}...")
 
         discount = order.total_amount * self._discount_percentage
-        print(
+        self._logger.info(
             f"[CONTRACT] Applied {self._discount_percentage * 100}% discount: -${discount:.2f}"
         )
 
@@ -139,7 +143,7 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
 
         Creates a new Order instance with updated status (immutable pattern).
         """
-        print(
+        self._logger.info(
             f"[CONTRACT] Updating order {order.id} status: {order.status} -> {new_status}"
         )
 
@@ -154,7 +158,7 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
 
         # Update mock database
         self._mock_orders[order.id] = updated_order
-        print(f"[CONTRACT] Order {order.id} status updated successfully")
+        self._logger.info(f"[CONTRACT] Order {order.id} status updated successfully")
 
         return updated_order
 
@@ -165,9 +169,13 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
         In production, this would integrate with email, SMS, or push
         notification services.
         """
-        print(f"[CONTRACT] Sending notification to {order.customer_name}...")
-        print(f"[CONTRACT] Message: {message}")
+        self._logger.info(
+            f"[CONTRACT] Sending notification to {order.customer_name}..."
+        )
+        self._logger.info(f"[CONTRACT] Message: {message}")
 
         # Simulate successful notification
-        print(f"[CONTRACT] ✓ Notification sent successfully to {order.customer_name}")
+        self._logger.info(
+            f"[CONTRACT] ✓ Notification sent successfully to {order.customer_name}"
+        )
         return True

@@ -16,6 +16,7 @@ from src.app.core.orders.features.processOrder.schemas.INPUT_ProcessOrder import
 from src.app.core.orders.features.processOrder.schemas.OUTPUT_ProcessOrder import (
     OUTPUT_ProcessOrder,
 )
+from src.app.infra.logger.interfaces.logger_service import LoggerService
 
 
 class USECASE_ProcessOrder(AbstractUsecase):
@@ -32,8 +33,11 @@ class USECASE_ProcessOrder(AbstractUsecase):
     7. Notify customer of order processing
     """
 
-    def __init__(self, usecase_helper: INTERFACE_HELPER_ProcessOrder):
+    def __init__(
+        self, usecase_helper: INTERFACE_HELPER_ProcessOrder, logger: LoggerService
+    ):
         self._helper = usecase_helper
+        self._logger = logger
 
     async def execute(self, input: INPUT_ProcessOrder) -> OUTPUT_ProcessOrder:
         """
@@ -45,9 +49,11 @@ class USECASE_ProcessOrder(AbstractUsecase):
         Returns:
             OUTPUT_ProcessOrder with processing results
         """
-        print(f"\n{'='*60}")
-        print(f"[USECASE] Starting order processing for order ID: {input.order_id}")
-        print(f"{'='*60}\n")
+        self._logger.info(f"{'='*60}")
+        self._logger.info(
+            f"[USECASE] Starting order processing for order ID: {input.order_id}"
+        )
+        self._logger.info(f"{'='*60}")
 
         # Step 1: Load the order
         order = await self._helper.load_order(input.order_id)
@@ -76,12 +82,12 @@ class USECASE_ProcessOrder(AbstractUsecase):
 
         # Step 5: Calculate final total
         final_total = order.total_amount + shipping_cost - discount
-        print(f"\n[USECASE] Order Summary:")
-        print(f"  Subtotal:  ${order.total_amount:.2f}")
-        print(f"  Shipping:  ${shipping_cost:.2f}")
-        print(f"  Discount: -${discount:.2f}")
-        print(f"  ─────────────────")
-        print(f"  Total:     ${final_total:.2f}\n")
+        self._logger.info(f"[USECASE] Order Summary:")
+        self._logger.info(f"  Subtotal:  ${order.total_amount:.2f}")
+        self._logger.info(f"  Shipping:  ${shipping_cost:.2f}")
+        self._logger.info(f"  Discount: -${discount:.2f}")
+        self._logger.info(f"  ─────────────────")
+        self._logger.info(f"  Total:     ${final_total:.2f}")
 
         # Step 6: Update order status
         updated_order = await self._helper.update_order_status(order, "processing")
@@ -93,9 +99,9 @@ class USECASE_ProcessOrder(AbstractUsecase):
         )
         await self._helper.notify_customer(updated_order, notification_message)
 
-        print(f"\n{'='*60}")
-        print(f"[USECASE] Order processing completed successfully!")
-        print(f"{'='*60}\n")
+        self._logger.info(f"{'='*60}")
+        self._logger.info(f"[USECASE] Order processing completed successfully!")
+        self._logger.info(f"{'='*60}")
 
         return OUTPUT_ProcessOrder(
             order=updated_order,
