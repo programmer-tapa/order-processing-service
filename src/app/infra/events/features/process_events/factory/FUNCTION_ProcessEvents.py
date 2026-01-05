@@ -11,8 +11,11 @@ from src.app.infra.events.features.process_events.schemas.OUTPUT_ProcessEvents i
     OUTPUT_ProcessEvents,
 )
 
+from src.app.infra.logger.services.service_logger import get_service_logger
 
-async def SERVICE_ProcessEvents(request: INPUT_ProcessEvents) -> OUTPUT_ProcessEvents:
+
+async def FUNCTION_ProcessEvents(request: INPUT_ProcessEvents) -> OUTPUT_ProcessEvents:
     usecase_helper = CONTRACT_HELPER_ProcessEvents_V0()
-    usecase = USECASE_ProcessEvents(usecase_helper)
+    logger = get_service_logger()
+    usecase = USECASE_ProcessEvents(usecase_helper, logger)
     return await usecase.execute(request)

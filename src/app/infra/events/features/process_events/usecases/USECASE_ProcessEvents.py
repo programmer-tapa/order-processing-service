@@ -12,20 +12,30 @@ from src.app.infra.events.entities.event import Event
 from src.app.infra.events.entities.abstract_event_processor import (
     AbstractEventProcessor,
 )
+from src.app.infra.logger.interfaces.logger_service import LoggerService
+from src.app.core.origin.schemas.ServiceOutput import ServiceOutput
 
 
 class USECASE_ProcessEvents(AbstractUsecase):
 
-    def __init__(self, usecase_helper: INTERFACE_HELPER_ProcessEvents):
-        self.usecase_helper = usecase_helper
+    def __init__(
+        self, usecase_helper: INTERFACE_HELPER_ProcessEvents, logger: LoggerService
+    ):
+        self._helper = usecase_helper
+        self._logger = logger
 
     async def execute(self, request: INPUT_ProcessEvents) -> OUTPUT_ProcessEvents:
         try:
             event: Event = request.event
             event_processor: AbstractEventProcessor = (
-                self.usecase_helper.detect_event_processor(event)
+                self._helper.detect_event_processor(event)
             )
-            await event_processor.process(event)
+            result: ServiceOutput = await event_processor.process(event)
+            self._logger.info(result)
+
+            if not result.success:
+                raise Exception(result.message)
+
             return OUTPUT_ProcessEvents(
                 success=True, message=f"Event processed successfully: {event.name}"
             )

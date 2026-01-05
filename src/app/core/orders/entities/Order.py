@@ -1,7 +1,8 @@
 from src.app.core.origin.entities.base_class import BaseClass
 
+
 class Order(BaseClass):
-    id: int
+    id: str
     customer_name: str
     total_amount: float
     status: str

@@ -10,8 +10,8 @@ from src.app.infra.events.entities.event import Event
 from src.app.infra.events.features.process_events.schemas.INPUT_ProcessEvents import (
     INPUT_ProcessEvents,
 )
-from src.app.infra.events.features.process_events.services.SERVICE_ProcessEvents import (
-    SERVICE_ProcessEvents,
+from src.app.infra.events.features.process_events.factory.FUNCTION_ProcessEvents import (
+    FUNCTION_ProcessEvents,
 )
 from src.app.infra.logger.services.service_logger import get_service_logger
 from src.app.infra.dotenv.services.service_dotenv import get_service_dotenv
@@ -68,7 +68,9 @@ class KafkaConsumerAdapter(AbstractConsumerAdapter, ABC):
 
                 if msg is None:
                     continue
-                self.logger.warning("number of messages from kafka")
+                self.logger.warning(
+                    "..................messages from kafka.................."
+                )
                 # logger.warning(self.consumer)
                 self.logger.warning(msg)
 
@@ -125,7 +127,7 @@ class KafkaConsumerAdapter(AbstractConsumerAdapter, ABC):
             )
             self.logger.info(event)
             request = INPUT_ProcessEvents(event=event)
-            result = await SERVICE_ProcessEvents(request)
+            result = await FUNCTION_ProcessEvents(request)
             self.logger.info(f"Processed event: {result.message}")
         except Exception as e:
             self.logger.error(f"Error processing message, sending to DLQ: {str(e)}")
