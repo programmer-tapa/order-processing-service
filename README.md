@@ -179,7 +179,52 @@ uv run pytest tests/app/core/orders/features/processOrder/usecases/test_USECASE_
 
 ## Architecture
 
-This service follows a **Clean Architecture** pattern:
+### Architecture Philosophy
+
+This codebase implements **Vertical Slice Architecture** combined with **Clean Architecture** principles, designed for **feature-driven development** in enterprise environments.
+
+#### Why This Structure?
+
+| Common First Impression          | Actual Intent                                                         |
+| -------------------------------- | --------------------------------------------------------------------- |
+| "Over-engineered"                | Deliberate vertical slice architecture for scalable team development  |
+| "Too many files"                 | Proper separation of concerns – each file has a single responsibility |
+| "Java patterns forced on Python" | Framework-agnostic patterns that work in any language                 |
+
+#### Design Decisions
+
+1. **Vertical Slices over Horizontal Layers**
+
+   - Each feature (`processOrder`, `cancelOrder`) is a self-contained unit
+   - Adding a new feature = adding a new folder, not modifying existing code
+   - Deleting a feature = deleting a folder, with zero impact on other features
+
+2. **Explicit Naming Convention**
+
+   - `USECASE_`, `SERVICE_`, `CONTRACT_`, `INTERFACE_` prefixes make the role of each class immediately clear
+   - Self-documenting code that scales across large teams
+   - Enables quick navigation in large codebases
+
+3. **Dependency Inversion**
+
+   - Business logic (use cases) depends on abstractions (interfaces), not implementations
+   - Contracts can be swapped without changing business logic (e.g., `V0` → `V1`)
+   - Enables easy testing with mock implementations
+
+4. **Factory Pattern for DI**
+   - No framework dependency for dependency injection
+   - Explicit wiring makes the dependency graph visible
+   - Singleton pattern for performance-critical services
+
+This architecture is particularly suited for:
+
+- 🏢 **Enterprise microservices** with multiple teams
+- 🔄 **Polyglot environments** (same patterns in Python, Java, TypeScript)
+- 📈 **Rapidly evolving products** where features are added/removed frequently
+
+---
+
+### Clean Architecture Layers
 
 | Layer          | Description                                                        |
 | -------------- | ------------------------------------------------------------------ |
