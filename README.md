@@ -341,6 +341,122 @@ class EventProcessor_OrderShipped(AbstractEventProcessor):
         # Your processing logic here
 ```
 
+## Kafka Event Schema
+
+Events consumed from Kafka follow this structure:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "OrderCreated",
+  "data": {
+    "orderId": "12345",
+    "customerId": "cust-789",
+    "totalAmount": 150.0,
+    "currency": "INR",
+    "status": "CREATED",
+    "items": [
+      {
+        "productId": "prod-001",
+        "quantity": 2,
+        "unitPrice": 75.0,
+        "totalPrice": 150.0
+      }
+    ],
+    "createdAt": "2026-01-05T11:34:53.145Z"
+  }
+}
+```
+
+| Field              | Type   | Description                                       |
+| ------------------ | ------ | ------------------------------------------------- |
+| `id`               | UUID   | Unique event identifier                           |
+| `name`             | string | Event type (e.g., `OrderCreated`, `OrderShipped`) |
+| `data`             | object | Event-specific payload                            |
+| `data.orderId`     | string | Order identifier                                  |
+| `data.customerId`  | string | Customer identifier                               |
+| `data.totalAmount` | float  | Order total                                       |
+| `data.currency`    | string | Currency code (ISO 4217)                          |
+
+## Failure Handling & Reliability
+
+### Implemented Failsafe Mechanisms
+
+| Mechanism                   | Implementation                                                  |
+| --------------------------- | --------------------------------------------------------------- |
+| **Connection Retry**        | 5 attempts with exponential backoff (1s → 2s → 4s → 8s → 16s)   |
+| **Correlation IDs**         | UUID generated per message for distributed tracing `[abc12345]` |
+| **Safe JSON Parsing**       | Invalid JSON caught and routed to DLQ                           |
+| **Double-Close Prevention** | `_consumer_closed` flag prevents errors                         |
+| **DLQ with Metadata**       | Headers include `correlation_id` and `error_reason`             |
+| **Graceful Shutdown**       | Interruptible sleep, stop flag checked on each iteration        |
+| **Poll Auto-Restart**       | While loop with 5s delay replaces recursive calls               |
+
+### Error Handling Flow
+
+```
+Message Received
+      │
+      ▼
+┌─────────────────┐    Invalid JSON    ┌─────────────┐
+│  JSON Parsing   │ ─────────────────▶ │     DLQ     │
+└────────┬────────┘                    │  (headers)  │
+         │                             └─────────────┘
+         │ Valid JSON                         ▲
+         ▼                                    │
+┌─────────────────┐    Processing      ───────┘
+│ Event Processor │    Failed
+└────────┬────────┘
+         │
+         │ Success
+         ▼
+   Message Logged
+```
+
+### Dead Letter Queue (DLQ)
+
+Failed messages are routed to `orders-dlq` topic with:
+
+- `correlation_id` header for tracing
+- `error_reason` header (truncated to 500 chars)
+- Original message key and value preserved
+
+### Future Enhancements
+
+| Enhancement           | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| Health Check Endpoint | Kubernetes readiness probe integration          |
+| Manual Offset Commit  | At-least-once delivery guarantee                |
+| Circuit Breaker       | Prevent cascade failures to downstream services |
+| Consumer Scaling      | Horizontal scaling via topic partitioning       |
+
+## Interview Talking Points
+
+<details>
+<summary>Click to expand prepared answers for common interview questions</summary>
+
+### "Describe the architecture"
+
+> "This is a Python FastAPI service that consumes Kafka events and executes domain use cases. Domain logic is isolated from messaging and framework concerns using Clean Architecture with Vertical Slices. Infrastructure concerns are implemented via interfaces and concrete adapters."
+
+### "Why Clean Architecture?"
+
+> "It enables independent testing of business rules, isolates side-effects, and makes it easy to swap implementations (e.g., Kafka → RabbitMQ, Mock → PostgreSQL) without changing core logic. Each feature is a self-contained vertical slice that can be developed, tested, and deployed independently."
+
+### "Explain DLQ & reliability"
+
+> "Messages that fail processing get routed to a Dead Letter Queue. This ensures problematic messages are observable and debuggable without halting the pipeline. In production, I'd add retry logic with exponential backoff before DLQ routing."
+
+### "How would you scale this?"
+
+> "The consumer group design supports parallel processing. I'd partition topics based on order ID for ordering guarantees, scale consumers horizontally, and use Kubernetes HPA based on consumer lag metrics."
+
+### "What happens if Kafka is down?"
+
+> "On startup, the consumer would retry connection with backoff. I'd implement a health check that reports 'unhealthy' until Kafka is available. In production, I'd add circuit breaker patterns to prevent cascade failures."
+
+</details>
+
 ## Naming Conventions
 
 | Type            | Pattern                                        | Example                           |
@@ -351,6 +467,8 @@ class EventProcessor_OrderShipped(AbstractEventProcessor):
 | Schema          | `INPUT_<FeatureName>` / `OUTPUT_<FeatureName>` | `INPUT_ProcessOrder`              |
 | Service         | `SERVICE_<FeatureName>`                        | `SERVICE_ProcessOrder`            |
 | Event Processor | `EventProcessor_<EventName>`                   | `EventProcessor_OrderCreated`     |
+
+> **Note:** These prefixes are intentional, not a deviation from PEP 8. They provide self-documenting code where the role of each class is immediately clear at a glance. This pattern is particularly valuable in polyglot environments where the same conventions work across Python, Java, and TypeScript codebases.
 
 ## API Documentation
 
