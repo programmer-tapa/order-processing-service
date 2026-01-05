@@ -32,7 +32,7 @@ class TestUSECASE_ProcessOrder:
     def mock_order(self):
         """A valid order in 'new' status."""
         return Order(
-            id=1,
+            id="1",
             customer_name="Alice",
             total_amount=100.0,
             status="new",
@@ -111,23 +111,23 @@ class TestUSECASE_ProcessOrder:
     @pytest.mark.asyncio
     async def test_execute_calls_load_order_with_correct_id(self, usecase, mock_helper):
         """Test that execute calls load_order with the correct order_id."""
-        request = INPUT_ProcessOrder(order_id=42)
+        request = INPUT_ProcessOrder(order_id="42")
 
         await usecase.execute(request)
 
-        mock_helper.load_order.assert_called_once_with(42)
+        mock_helper.load_order.assert_called_once_with("42")
 
     @pytest.mark.asyncio
     async def test_execute_calls_all_helper_methods_in_order(
         self, usecase, mock_helper, mock_order, mock_updated_order
     ):
         """Test that execute calls all helper methods in the correct order."""
-        request = INPUT_ProcessOrder(order_id=1)
+        request = INPUT_ProcessOrder(order_id="1")
 
         await usecase.execute(request)
 
         # Verify all methods were called
-        mock_helper.load_order.assert_called_once_with(1)
+        mock_helper.load_order.assert_called_once_with("1")
         mock_helper.validate_order.assert_called_once_with(mock_order)
         mock_helper.calculate_shipping.assert_called_once_with(mock_order)
         mock_helper.apply_discounts.assert_called_once_with(mock_order)
@@ -141,7 +141,7 @@ class TestUSECASE_ProcessOrder:
         self, usecase, mock_helper, mock_updated_order
     ):
         """Test that execute sends correct notification message to customer."""
-        request = INPUT_ProcessOrder(order_id=1)
+        request = INPUT_ProcessOrder(order_id="1")
 
         await usecase.execute(request)
 
@@ -165,7 +165,7 @@ class TestUSECASE_ProcessOrder:
             side_effect=OrderNotFoundException("Order not found: 999")
         )
         usecase = USECASE_ProcessOrder(mock_helper, mock_logger)
-        request = INPUT_ProcessOrder(order_id=999)
+        request = INPUT_ProcessOrder(order_id="999")
 
         with pytest.raises(OrderNotFoundException) as exc_info:
             await usecase.execute(request)
@@ -186,7 +186,7 @@ class TestUSECASE_ProcessOrder:
             )
         )
         usecase = USECASE_ProcessOrder(mock_helper, mock_logger)
-        request = INPUT_ProcessOrder(order_id=1)
+        request = INPUT_ProcessOrder(order_id="1")
 
         with pytest.raises(InvalidOrderException) as exc_info:
             await usecase.execute(request)
@@ -278,7 +278,7 @@ class TestUSECASE_ProcessOrder:
     async def test_execute_handles_zero_shipping_cost(self, mock_logger):
         """Test that execute handles zero shipping cost correctly."""
         mock_order = Order(
-            id=1,
+            id="1",
             customer_name="Alice",
             total_amount=200.0,  # High amount for free shipping
             status="new",
@@ -286,7 +286,7 @@ class TestUSECASE_ProcessOrder:
             updated_at="2023-01-01T00:00:00Z",
         )
         mock_updated_order = Order(
-            id=1,
+            id="1",
             customer_name="Alice",
             total_amount=200.0,
             status="processing",
@@ -314,7 +314,7 @@ class TestUSECASE_ProcessOrder:
     async def test_execute_handles_zero_discount(self, mock_logger):
         """Test that execute handles zero discount correctly."""
         mock_order = Order(
-            id=1,
+            id="1",
             customer_name="Alice",
             total_amount=50.0,
             status="new",
@@ -322,7 +322,7 @@ class TestUSECASE_ProcessOrder:
             updated_at="2023-01-01T00:00:00Z",
         )
         mock_updated_order = Order(
-            id=1,
+            id="1",
             customer_name="Alice",
             total_amount=50.0,
             status="processing",

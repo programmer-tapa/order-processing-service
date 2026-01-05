@@ -13,6 +13,7 @@ from src.app.infra.events.entities.event import Event
 from src.app.infra.events.entities.abstract_event_processor import (
     AbstractEventProcessor,
 )
+from src.app.core.origin.schemas.ServiceOutput import ServiceOutput
 
 
 class TestUSECASE_ProcessEvents:
@@ -24,7 +25,9 @@ class TestUSECASE_ProcessEvents:
     @pytest.fixture
     def mock_processor(self):
         processor = Mock(spec=AbstractEventProcessor)
-        processor.process = AsyncMock(return_value=None)
+        processor.process = AsyncMock(
+            return_value=ServiceOutput.success({"result": "processed"})
+        )
         return processor
 
     @pytest.fixture
@@ -34,8 +37,17 @@ class TestUSECASE_ProcessEvents:
         return helper
 
     @pytest.fixture
-    def usecase(self, mock_helper):
-        return USECASE_ProcessEvents(mock_helper)
+    def mock_logger(self):
+        logger = Mock()
+        logger.info = Mock()
+        logger.debug = Mock()
+        logger.warning = Mock()
+        logger.error = Mock()
+        return logger
+
+    @pytest.fixture
+    def usecase(self, mock_helper, mock_logger):
+        return USECASE_ProcessEvents(mock_helper, mock_logger)
 
     @pytest.mark.asyncio
     async def test_execute_success(
@@ -59,7 +71,8 @@ class TestUSECASE_ProcessEvents:
         mock_helper.detect_event_processor = Mock(
             side_effect=ModuleNotFoundError("No module found")
         )
-        usecase = USECASE_ProcessEvents(mock_helper)
+        mock_logger = Mock()
+        usecase = USECASE_ProcessEvents(mock_helper, mock_logger)
         request = INPUT_ProcessEvents(event=mock_event)
 
         result = await usecase.execute(request)
