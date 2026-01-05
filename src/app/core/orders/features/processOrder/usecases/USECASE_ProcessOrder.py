@@ -24,8 +24,8 @@ class USECASE_ProcessOrder(AbstractUsecase):
     Use case that processes an order through the complete workflow.
 
     Processing steps:
-    1. Load order by ID
-    2. Validate order is in processable state
+    1. Load order by ID (throws OrderNotFoundException if not found)
+    2. Validate order is in processable state (throws InvalidOrderException if invalid)
     3. Calculate shipping cost
     4. Apply available discounts
     5. Calculate final total
@@ -48,6 +48,10 @@ class USECASE_ProcessOrder(AbstractUsecase):
 
         Returns:
             OUTPUT_ProcessOrder with processing results
+
+        Raises:
+            OrderNotFoundException: If order is not found
+            InvalidOrderException: If order is not valid for processing
         """
         self._logger.info(f"{'='*60}")
         self._logger.info(
@@ -55,24 +59,11 @@ class USECASE_ProcessOrder(AbstractUsecase):
         )
         self._logger.info(f"{'='*60}")
 
-        # Step 1: Load the order
+        # Step 1: Load the order (throws OrderNotFoundException if not found)
         order = await self._helper.load_order(input.order_id)
 
-        if order is None:
-            return OUTPUT_ProcessOrder(
-                success=False,
-                message=f"Order not found: {input.order_id}",
-            )
-
-        # Step 2: Validate the order
-        is_valid = await self._helper.validate_order(order)
-
-        if not is_valid:
-            return OUTPUT_ProcessOrder(
-                order=order,
-                success=False,
-                message=f"Order {order.id} is not in a valid state for processing (status: {order.status})",
-            )
+        # Step 2: Validate the order (throws InvalidOrderException if invalid)
+        await self._helper.validate_order(order)
 
         # Step 3: Calculate shipping
         shipping_cost = await self._helper.calculate_shipping(order)

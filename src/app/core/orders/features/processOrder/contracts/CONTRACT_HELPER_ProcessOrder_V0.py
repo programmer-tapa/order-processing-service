@@ -6,11 +6,16 @@ and testing purposes. In production, this would be replaced with
 real database queries and external service integrations.
 """
 
-from typing import Optional
 from datetime import datetime
 from src.app.core.orders.entities.Order import Order
 from src.app.core.orders.features.processOrder.interfaces.INTERFACE_HELPER_ProcessOrder import (
     INTERFACE_HELPER_ProcessOrder,
+)
+from src.app.core.orders.features.processOrder.exceptions.OrderNotFoundException import (
+    OrderNotFoundException,
+)
+from src.app.core.orders.features.processOrder.exceptions.InvalidOrderException import (
+    InvalidOrderException,
 )
 from src.app.infra.logger.services.service_logger import get_service_logger
 
@@ -61,25 +66,34 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
         # Discount configuration
         self._discount_percentage = 0.10  # 10% discount
 
-    async def load_order(self, order_id: str) -> Optional[Order]:
-        """Load order from mock database by ID."""
+    async def load_order(self, order_id: str) -> Order:
+        """
+        Load order from mock database by ID.
+
+        Raises:
+            OrderNotFoundException: If order with given ID does not exist
+        """
         self._logger.info(f"[CONTRACT] Loading order with ID: {order_id}")
         order = self._mock_orders.get(order_id)
         if order:
             self._logger.info(
                 f"[CONTRACT] Found order for customer: {order.customer_name}"
             )
+            return order
         else:
             self._logger.info(f"[CONTRACT] Order not found: {order_id}")
-        return order
+            raise OrderNotFoundException(f"Order not found: {order_id}")
 
-    async def validate_order(self, order: Order) -> bool:
+    async def validate_order(self, order: Order) -> None:
         """
         Validate order is in a processable state.
 
         Order is valid if:
         - Status is 'new' or 'pending'
         - Total amount is greater than 0
+
+        Raises:
+            InvalidOrderException: If order is not valid for processing
         """
         self._logger.info(f"[CONTRACT] Validating order {order.id}...")
 
@@ -87,19 +101,21 @@ class CONTRACT_HELPER_ProcessOrder_V0(INTERFACE_HELPER_ProcessOrder):
         is_valid_status = order.status in valid_statuses
         is_valid_amount = order.total_amount > 0
 
-        is_valid = is_valid_status and is_valid_amount
-
         if not is_valid_status:
             self._logger.info(
                 f"[CONTRACT] Invalid status: {order.status} (expected: {valid_statuses})"
             )
+            raise InvalidOrderException(
+                f"Order {order.id} is not in a valid state for processing (status: {order.status})"
+            )
+
         if not is_valid_amount:
             self._logger.info(f"[CONTRACT] Invalid amount: {order.total_amount}")
+            raise InvalidOrderException(
+                f"Order {order.id} has invalid amount: {order.total_amount}"
+            )
 
-        self._logger.info(
-            f"[CONTRACT] Order validation result: {'VALID' if is_valid else 'INVALID'}"
-        )
-        return is_valid
+        self._logger.info(f"[CONTRACT] Order validation result: VALID")
 
     async def calculate_shipping(self, order: Order) -> float:
         """

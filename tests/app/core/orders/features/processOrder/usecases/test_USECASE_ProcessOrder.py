@@ -16,6 +16,13 @@ from src.app.core.orders.features.processOrder.schemas.INPUT_ProcessOrder import
 from src.app.core.orders.features.processOrder.schemas.OUTPUT_ProcessOrder import (
     OUTPUT_ProcessOrder,
 )
+from src.app.core.orders.features.processOrder.exceptions.OrderNotFoundException import (
+    OrderNotFoundException,
+)
+from src.app.core.orders.features.processOrder.exceptions.InvalidOrderException import (
+    InvalidOrderException,
+)
+from src.app.core.origin.schemas.ServiceStatus import ServiceStatus
 from src.app.core.orders.entities.Order import Order
 
 
@@ -61,7 +68,7 @@ class TestUSECASE_ProcessOrder:
         """Mock helper with all required methods."""
         helper = Mock()
         helper.load_order = AsyncMock(return_value=mock_order)
-        helper.validate_order = AsyncMock(return_value=True)
+        helper.validate_order = AsyncMock(return_value=None)
         helper.calculate_shipping = AsyncMock(return_value=5.99)
         helper.apply_discounts = AsyncMock(return_value=10.0)
         helper.update_order_status = AsyncMock(return_value=mock_updated_order)
@@ -148,48 +155,53 @@ class TestUSECASE_ProcessOrder:
         assert "95.99" in notification_message  # final total
         assert "5.99" in notification_message  # shipping
 
-    # ==================== Failure Cases ====================
+    # ==================== Exception Cases ====================
 
     @pytest.mark.asyncio
-    async def test_execute_returns_failure_when_order_not_found(self, mock_logger):
-        """Test that execute returns failure when order is not found."""
+    async def test_execute_raises_order_not_found_exception(self, mock_logger):
+        """Test that execute raises OrderNotFoundException when order is not found."""
         mock_helper = Mock()
-        mock_helper.load_order = AsyncMock(return_value=None)
+        mock_helper.load_order = AsyncMock(
+            side_effect=OrderNotFoundException("Order not found: 999")
+        )
         usecase = USECASE_ProcessOrder(mock_helper, mock_logger)
         request = INPUT_ProcessOrder(order_id=999)
 
-        result = await usecase.execute(request)
+        with pytest.raises(OrderNotFoundException) as exc_info:
+            await usecase.execute(request)
 
-        assert result.success is False
-        assert result.order is None
-        assert "not found" in result.message.lower()
-        assert "999" in result.message
+        assert "999" in str(exc_info.value)
+        assert exc_info.value.status == ServiceStatus.NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_execute_returns_failure_when_order_invalid(
+    async def test_execute_raises_invalid_order_exception(
         self, mock_order, mock_logger
     ):
-        """Test that execute returns failure when order validation fails."""
+        """Test that execute raises InvalidOrderException when order validation fails."""
         mock_helper = Mock()
         mock_helper.load_order = AsyncMock(return_value=mock_order)
-        mock_helper.validate_order = AsyncMock(return_value=False)
+        mock_helper.validate_order = AsyncMock(
+            side_effect=InvalidOrderException(
+                f"Order {mock_order.id} is not in a valid state for processing"
+            )
+        )
         usecase = USECASE_ProcessOrder(mock_helper, mock_logger)
         request = INPUT_ProcessOrder(order_id=1)
 
-        result = await usecase.execute(request)
+        with pytest.raises(InvalidOrderException) as exc_info:
+            await usecase.execute(request)
 
-        assert result.success is False
-        assert result.order == mock_order
-        assert "not in a valid state" in result.message.lower()
+        assert "not in a valid state" in str(exc_info.value)
+        assert exc_info.value.status == ServiceStatus.VALIDATION_ERROR
 
     @pytest.mark.asyncio
-    async def test_execute_does_not_continue_after_validation_failure(
-        self, mock_order, mock_logger
-    ):
-        """Test that execute stops processing after validation failure."""
+    async def test_execute_does_not_continue_after_order_not_found(self, mock_logger):
+        """Test that execute stops processing after OrderNotFoundException."""
         mock_helper = Mock()
-        mock_helper.load_order = AsyncMock(return_value=mock_order)
-        mock_helper.validate_order = AsyncMock(return_value=False)
+        mock_helper.load_order = AsyncMock(
+            side_effect=OrderNotFoundException("Order not found: 1")
+        )
+        mock_helper.validate_order = AsyncMock()
         mock_helper.calculate_shipping = AsyncMock()
         mock_helper.apply_discounts = AsyncMock()
         mock_helper.update_order_status = AsyncMock()
@@ -197,7 +209,35 @@ class TestUSECASE_ProcessOrder:
         usecase = USECASE_ProcessOrder(mock_helper, mock_logger)
         request = INPUT_ProcessOrder(order_id="1")
 
-        await usecase.execute(request)
+        with pytest.raises(OrderNotFoundException):
+            await usecase.execute(request)
+
+        # These should NOT be called after exception
+        mock_helper.validate_order.assert_not_called()
+        mock_helper.calculate_shipping.assert_not_called()
+        mock_helper.apply_discounts.assert_not_called()
+        mock_helper.update_order_status.assert_not_called()
+        mock_helper.notify_customer.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_execute_does_not_continue_after_validation_failure(
+        self, mock_order, mock_logger
+    ):
+        """Test that execute stops processing after InvalidOrderException."""
+        mock_helper = Mock()
+        mock_helper.load_order = AsyncMock(return_value=mock_order)
+        mock_helper.validate_order = AsyncMock(
+            side_effect=InvalidOrderException("Order is invalid")
+        )
+        mock_helper.calculate_shipping = AsyncMock()
+        mock_helper.apply_discounts = AsyncMock()
+        mock_helper.update_order_status = AsyncMock()
+        mock_helper.notify_customer = AsyncMock()
+        usecase = USECASE_ProcessOrder(mock_helper, mock_logger)
+        request = INPUT_ProcessOrder(order_id="1")
+
+        with pytest.raises(InvalidOrderException):
+            await usecase.execute(request)
 
         # These should NOT be called after validation failure
         mock_helper.calculate_shipping.assert_not_called()
@@ -255,7 +295,7 @@ class TestUSECASE_ProcessOrder:
         )
         mock_helper = Mock()
         mock_helper.load_order = AsyncMock(return_value=mock_order)
-        mock_helper.validate_order = AsyncMock(return_value=True)
+        mock_helper.validate_order = AsyncMock(return_value=None)
         mock_helper.calculate_shipping = AsyncMock(return_value=0.0)  # Free shipping
         mock_helper.apply_discounts = AsyncMock(return_value=20.0)
         mock_helper.update_order_status = AsyncMock(return_value=mock_updated_order)
@@ -291,7 +331,7 @@ class TestUSECASE_ProcessOrder:
         )
         mock_helper = Mock()
         mock_helper.load_order = AsyncMock(return_value=mock_order)
-        mock_helper.validate_order = AsyncMock(return_value=True)
+        mock_helper.validate_order = AsyncMock(return_value=None)
         mock_helper.calculate_shipping = AsyncMock(return_value=5.99)
         mock_helper.apply_discounts = AsyncMock(return_value=0.0)  # No discount
         mock_helper.update_order_status = AsyncMock(return_value=mock_updated_order)

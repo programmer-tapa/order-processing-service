@@ -7,7 +7,6 @@ makes the use case testable with mock implementations.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
 from src.app.core.orders.entities.Order import Order
 
 
@@ -20,7 +19,7 @@ class INTERFACE_HELPER_ProcessOrder(ABC):
     """
 
     @abstractmethod
-    async def load_order(self, order_id: str) -> Optional[Order]:
+    async def load_order(self, order_id: str) -> Order:
         """
         Load an order by its ID from the data source.
 
@@ -28,20 +27,23 @@ class INTERFACE_HELPER_ProcessOrder(ABC):
             order_id: The unique identifier of the order
 
         Returns:
-            The Order if found, None otherwise
+            The Order if found
+
+        Raises:
+            OrderNotFoundException: If order with given ID does not exist
         """
         pass
 
     @abstractmethod
-    async def validate_order(self, order: Order) -> bool:
+    async def validate_order(self, order: Order) -> None:
         """
         Validate that an order is in a processable state.
 
         Args:
             order: The order to validate
 
-        Returns:
-            True if the order is valid for processing, False otherwise
+        Raises:
+            InvalidOrderException: If the order is not valid for processing
         """
         pass
 
