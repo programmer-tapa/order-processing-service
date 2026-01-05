@@ -5,6 +5,7 @@ A Python-based microservice for processing orders and handling Kafka events usin
 ## Features
 
 - **Order Processing** – Process incoming orders from Kafka events with validation, shipping calculation, discounts, and customer notifications
+- **Order Cancellation** – Cancel orders with refund calculation and customer notifications
 - **Event-Driven Architecture** – Kafka consumer with Dead Letter Queue (DLQ) support
 - **Dynamic Event Processors** – Automatically loads event processors based on event names
 - **Clean Architecture** – Separation of concerns with use cases, interfaces, and contracts
@@ -28,10 +29,20 @@ src/
 │   │   │   └── features/
 │   │   │       └── processOrder/
 │   │   │           ├── contracts/         # Concrete implementations
+│   │   │           ├── exceptions/        # Feature-specific exceptions
+│   │   │           ├── factory/           # Entry point / DI
 │   │   │           ├── interfaces/        # Abstract interfaces
 │   │   │           ├── schemas/           # Input/Output DTOs
 │   │   │           ├── services/          # Service orchestrators
 │   │   │           └── usecases/          # Business use cases
+│   │   │       └── cancelOrder/           # Same structure as processOrder
+│   │   │           ├── contracts/
+│   │   │           ├── exceptions/
+│   │   │           ├── factory/
+│   │   │           ├── interfaces/
+│   │   │           ├── schemas/
+│   │   │           ├── services/
+│   │   │           └── usecases/
 │   │   └── system/                        # System-level utilities
 │   └── infra/                             # Infrastructure layer
 │       ├── dotenv/                        # Environment configuration
@@ -66,9 +77,12 @@ src/
         └── core/
             └── orders/
                 └── features/
-                    └── processOrder/
+                    ├── processOrder/
+                    │   └── usecases/
+                    │       └── test_USECASE_ProcessOrder.py
+                    └── cancelOrder/
                         └── usecases/
-                            └── test_USECASE_ProcessOrder.py
+                            └── test_USECASE_CancelOrder.py
 ```
 
 ## Tech Stack
@@ -174,6 +188,30 @@ This service follows a **Clean Architecture** pattern:
 | **Interfaces** | Abstract contracts (e.g., `INTERFACE_HELPER_ProcessOrder`)         |
 | **Contracts**  | Concrete implementations (e.g., `CONTRACT_HELPER_ProcessOrder_V0`) |
 | **Services**   | Orchestrators that wire use cases with helpers                     |
+| **Factory**    | Entry points with DI and singleton pattern                         |
+
+### Vertical Slice Architecture
+
+Each feature is a **self-contained vertical slice** containing all layers:
+
+```
+features/
+└── processOrder/           ← Vertical Slice (self-contained feature)
+    ├── schemas/            ← Input/Output DTOs
+    ├── interfaces/         ← Ports (abstractions)
+    ├── contracts/          ← Adapters (implementations)
+    ├── exceptions/         ← Feature-specific errors
+    ├── usecases/           ← Business logic
+    ├── services/           ← Orchestration
+    └── factory/            ← Entry point / DI
+```
+
+**Benefits:**
+
+- ✅ **Self-contained** – All layers within one folder
+- ✅ **Independently deployable** – Clear boundaries
+- ✅ **Easy to delete** – Remove folder = remove feature
+- ✅ **Parallel development** – Teams can work on different features
 
 ### Order Processing Workflow
 
@@ -186,6 +224,16 @@ The `USECASE_ProcessOrder` executes the following steps:
 5. **Calculate Final Total** – `total_amount + shipping - discount`
 6. **Update Order Status** – Set status to `processing`
 7. **Notify Customer** – Send notification with order details
+
+### Order Cancellation Workflow
+
+The `USECASE_CancelOrder` executes the following steps:
+
+1. **Load Order** – Retrieve order by ID from the data source
+2. **Validate Cancellable** – Ensure order can be cancelled (`new`, `pending`, or `processing` status)
+3. **Calculate Refund** – Determine refund amount (order total - 5% cancellation fee)
+4. **Update Order Status** – Set status to `cancelled`
+5. **Notify Customer** – Send cancellation notification with refund details
 
 ## Logging Service
 

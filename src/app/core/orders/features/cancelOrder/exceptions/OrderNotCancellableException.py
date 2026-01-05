@@ -1,0 +1,13 @@
+"""
+Exception raised when an order cannot be cancelled.
+"""
+
+from src.app.core.origin.exceptions.AppException import AppException
+from src.app.core.origin.schemas.ServiceStatus import ServiceStatus
+
+
+class OrderNotCancellableException(AppException):
+    """Exception raised when an order is not in a cancellable state."""
+
+    def __init__(self, message: str):
+        super().__init__(ServiceStatus.VALIDATION_ERROR, message)
